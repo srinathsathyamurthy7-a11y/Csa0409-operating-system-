@@ -1,0 +1,378 @@
+Name: Srinath S
+Register Number: 192521016
+Date:09-07-2026
+
+
+
+
+
+
+1.DISPLAY CURRENT PROCESS ID OF A RUNNING PROGRAM 
+
+#include <stdio.h>
+#include <unistd.h>
+int main(){
+    printf("Current Process ID (PID): %d \n",getpid());
+    return 0;
+}
+
+2.CREATE 2 CHILD PROCESS ID'S AND PRINT THEIR ID'S
+
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+
+int main() {
+    pid_t pid1, pid2;
+
+    pid1 = fork();
+
+    if (pid1 == 0) {
+        printf("First Child Process\n");
+        printf("Child 1 PID: %d\n", getpid());
+    } else {
+        pid2 = fork();
+
+        if (pid2 == 0) {
+            printf("Second Child Process\n");
+            printf("Child 2 PID: %d\n", getpid());
+        } else {
+            printf("Parent Process\n");
+            printf("Parent PID: %d\n", getpid());
+            printf("First Child PID: %d\n", pid1);
+            printf("Second Child PID: %d\n", pid2);
+        }
+    }
+
+    return 0;
+}
+
+3.SIMULATE A READY QUEUE USING A QUEUE DATA STRUCTURE
+
+#include <stdio.h>
+#define MAX 10
+
+int queue[MAX];
+int front = -1, rear = -1;
+
+void enqueue(int pid) {
+    if (rear == MAX - 1) {
+        printf("Ready Queue is Full!\n");
+        return;
+    }
+    if (front == -1)
+        front = 0;
+
+    rear++;
+    queue[rear] = pid;
+    printf("Process %d added to Ready Queue.\n", pid);
+}
+
+void dequeue() {
+    if (front == -1 || front > rear) {
+        printf("Ready Queue is Empty!\n");
+        return;
+    }
+
+    printf("Process %d is executing.\n", queue[front]);
+    front++;
+
+    if (front > rear)
+        front = rear = -1;
+}
+
+void display() {
+    int i;
+
+    if (front == -1) {
+        printf("Ready Queue is Empty!\n");
+        return;
+    }
+
+    printf("Ready Queue: ");
+    for (i = front; i <= rear; i++) {
+        printf("%d ", queue[i]);
+    }
+    printf("\n");
+}
+
+void peek() {
+    if (front == -1)
+        printf("Ready Queue is Empty!\n");
+    else
+        printf("Next Process to Execute: %d\n", queue[front]);
+}
+
+int main() {
+    int choice, pid;
+
+    while (1) {
+        printf("\n--- Ready Queue Simulation ---\n");
+        printf("1. Add Process\n");
+        printf("2. Execute Process\n");
+        printf("3. Display Ready Queue\n");
+        printf("4. Peek Front Process\n");
+        printf("5. Exit\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+
+        switch (choice) {
+            case 1:
+                printf("Enter Process ID: ");
+                scanf("%d", &pid);
+                enqueue(pid);
+                break;
+
+            case 2:
+                dequeue();
+                break;
+
+            case 3:
+                display();
+                break;
+
+            case 4:
+                peek();
+                break;
+
+            case 5:
+                return 0;
+
+            default:
+                printf("Invalid Choice!\n");
+        }
+    }
+
+    return 0;
+}
+
+4.SIMULATE A SIMPLE SCHEDULER THAT EXECUTES PROCESSES ONE BY ONE 
+
+#include <stdio.h>
+
+int main() {
+    int n, i, p[10];
+
+    printf("Enter number of processes: ");
+    scanf("%d", &n);
+
+    for(i = 0; i < n; i++) {
+        printf("Enter Process ID: ");
+        scanf("%d", &p[i]);
+    }
+
+    printf("\nExecution Order:\n");
+    for(i = 0; i < n; i++) {
+        printf("Executing Process %d\n", p[i]);
+    }
+
+    return 0;
+}
+
+5.READ AND WRITE DATA USING FILE SYSTEM CALLS
+
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+
+int main() {
+    int fd;
+    char data[] = "Hello Operating System";
+    char buffer[100];
+
+    fd = open("sample.txt", O_CREAT | O_RDWR | O_TRUNC, 0644);
+
+    if (fd == -1) {
+        perror("Error opening file");
+        exit(1);
+    }
+
+    write(fd, data, strlen(data));
+
+    lseek(fd, 0, SEEK_SET);
+
+    int bytes = read(fd, buffer, sizeof(buffer) - 1);
+
+    if (bytes == -1) {
+        perror("Error reading file");
+        close(fd);
+        exit(1);
+    }
+
+    buffer[bytes] = '\0';   // Null terminate the string
+
+    printf("Data Read: %s\n", buffer);
+
+    close(fd);
+
+    return 0;
+}
+
+6.SIMULATE PAGE REPLACEMENT USING A LIST OR QUEUE
+
+#include <stdio.h>
+
+int main() {
+    int frames[3], pages[] = {1,2,3,4,1,2,5};
+    int i, j, front = 0, faults = 0, found;
+
+    for(i=0;i<3;i++)
+        frames[i] = -1;
+
+    for(i=0;i<7;i++) {
+        found = 0;
+
+        for(j=0;j<3;j++) {
+            if(frames[j] == pages[i]) {
+                found = 1;
+                break;
+            }
+        }
+
+        if(!found) {
+            frames[front] = pages[i];
+            front = (front + 1) % 3;
+            faults++;
+        }
+    }
+
+    printf("Page Faults = %d\n", faults);
+
+    return 0;
+}
+
+7.ALLOCATE MEMORY BLOCKS USING ARRAYS
+
+#include <stdio.h>
+
+int main() {
+    int block[] = {100, 500, 200, 300};
+    int process[] = {212, 417, 112};
+    int i, j;
+
+    for(i=0;i<3;i++) {
+        for(j=0;j<4;j++) {
+            if(block[j] >= process[i]) {
+                printf("Process %d allocated to Block %d\n", process[i], j+1);
+                block[j] -= process[i];
+                break;
+            }
+        }
+
+        if(j==4)
+            printf("Process %d Not Allocated\n", process[i]);
+    }
+
+    return 0;
+}
+
+8.CREATE 2 THREADS THAT PRINT NUMBERS ALTERNATELY
+
+#include <stdio.h>
+#include <pthread.h>
+
+void *even(void *arg) {
+    int i;
+    for(i=2;i<=10;i+=2)
+        printf("Even: %d\n", i);
+    return NULL;
+}
+
+void *odd(void *arg) {
+    int i;
+    for(i=1;i<=9;i+=2)
+        printf("Odd : %d\n", i);
+    return NULL;
+}
+
+int main() {
+    pthread_t t1, t2;
+
+    pthread_create(&t1, NULL, odd, NULL);
+    pthread_create(&t2, NULL, even, NULL);
+
+    pthread_join(t1, NULL);
+    pthread_join(t2, NULL);
+
+    return 0;
+}
+
+9.IMPLEMENT A BOUNDED BUFFER USING A QUEUE
+
+#include <stdio.h>
+
+#define SIZE 5
+
+int buffer[SIZE];
+int front = -1, rear = -1;
+
+void produce(int item) {
+    if(rear == SIZE-1) {
+        printf("Buffer Full\n");
+        return;
+    }
+
+    if(front == -1)
+        front = 0;
+
+    buffer[++rear] = item;
+}
+
+void consume() {
+    if(front == -1 || front > rear) {
+        printf("Buffer Empty\n");
+        return;
+    }
+
+    printf("Consumed: %d\n", buffer[front++]);
+
+    if(front > rear)
+        front = rear = -1;
+}
+
+int main() {
+    produce(10);
+    produce(20);
+    produce(30);
+
+    consume();
+    consume();
+
+    return 0;
+}
+
+10.CALCULATE AVERAGE WAITING TIME FOR A GIVEN LIST OF PROCESSES
+
+#include <stdio.h>
+
+int main() {
+    int n, bt[10], wt[10];
+    int i;
+    float avg = 0;
+
+    printf("Enter number of processes: ");
+    scanf("%d", &n);
+
+    for(i=0;i<n;i++) {
+        printf("Burst Time P%d: ", i+1);
+        scanf("%d", &bt[i]);
+    }
+
+    wt[0] = 0;
+
+    for(i=1;i<n;i++)
+        wt[i] = wt[i-1] + bt[i-1];
+
+    printf("\nProcess\tBurst\tWaiting\n");
+
+    for(i=0;i<n;i++) {
+        printf("P%d\t%d\t%d\n", i+1, bt[i], wt[i]);
+        avg += wt[i];
+    }
+
+    printf("\nAverage Waiting Time = %.2f\n", avg / n);
+
+    return 0;
+}
