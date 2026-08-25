@@ -1,0 +1,520 @@
+ NAME: SRINATH S
+ REG NO: 192521016
+ COURSE CODE: CSA0409
+
+
+
+
+Q1. Optimized Linux File-System Layout for a 50 GB Server:
+Problem Analysis:
+The server has only 50 GB of storage, but it must accommodate:
+                         * System files and operating-system components.
+                         * Rapidly growing system logs.
+                         * User files.
+                         * Application data.
+                         * Temporary growth and emergency storage requirements.
+The most important constraints are that log files must not exceed 10 GB and that critical services must continue to operate even if logs grow rapidly.
+
+Proposed File-System Layout:
+File System   	 Size       	Purpose
+/boot	           1 GB	       Kernel and boot files
+/	               10 GB     	 Operating system
+/var/log	       10 GB	     System/application logs
+/home	           12 GB	     User files
+/var	           8 GB	       Application/package data
+Swap	           4 GB      	 Virtual memory
+Reserved space	 5 GB	       Emergency/free space
+Total	           50 GB	
+A separate /var/log filesystem is important because log growth cannot then consume the entire root filesystem.
+
+Checking the Existing Disk:
+lsblk
+sudo fdisk -l
+df -h
+
+LVM-Based Configuration:
+LVM is useful because logical volumes can be resized more flexibly.
+sudo pvcreate /dev/sdb
+sudo vgcreate vg_server /dev/sdb
+sudo lvcreate -L 10G -n lv_root vg_server
+sudo lvcreate -L 10G -n lv_log vg_server
+sudo lvcreate -L 12G -n lv_home vg_server
+sudo lvcreate -L 8G -n lv_var vg_server
+
+Create filesystems:
+sudo mkfs.ext4 /dev/vg_server/lv_root
+sudo mkfs.ext4 /dev/vg_server/lv_log
+sudo mkfs.ext4 /dev/vg_server/lv_home
+sudo mkfs.ext4 /dev/vg_server/lv_var
+
+Log Rotation:
+logrotate prevents old logs from consuming unlimited space.
+  
+Create a configuration:
+sudo nano /etc/logrotate.d/application
+
+Example:
+/var/log/application/*.log {
+    daily
+    rotate 7
+    size 100M
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+
+This configuration:
+              * Rotates logs daily.
+              * Keeps a limited number of old logs.
+              * Compresses old logs.
+              * Rotates a log when it reaches 100 MB.
+              * Prevents unnecessary accumulation.
+  
+Test the configuration:
+sudo logrotate -d /etc/logrotate.d/application
+
+Force rotation for testing:
+sudo logrotate -f /etc/logrotate.d/application
+
+Monitor Log Storage:
+df -h /var/log
+du -sh /var/log/*
+A simple monitoring script can warn the administrator when the filesystem approaches its limit:
+#!/bin/bash
+LIMIT=90
+USAGE=$(df --output=pcent /var/log | tail -1 | tr -dc '0-9')
+if [ "$USAGE" -ge "$LIMIT" ]; then
+    echo "WARNING: /var/log is ${USAGE}% full"
+    logger "WARNING: /var/log is approaching its storage limit"
+fi
+
+Justification:
+The separate 10 GB /var/log filesystem ensures that rapidly growing logs cannot consume space belonging to /.
+logrotate compresses and removes old logs, while monitoring provides an early warning.
+The 5 GB reserved space provides additional protection against unexpected storage growth. 
+Therefore, the design satisfies the 10 GB log constraint and helps critical services continue operating without interruption.
+
+
+
+  
+
+
+Q2. Kernel-Level Optimization for High CPU Workloads
+Problem Analysis:
+The Linux system experiences frequent context switching while handling high CPU workloads. Hardware upgrades are unavailable, so performance must be improved using:
+          * Scheduler tuning.
+          * CPU affinity.
+          * Process priorities.
+          * Real-time scheduling.
+          * Kernel-module management.
+The objective is to reduce unnecessary scheduling overhead while supporting real-time processing.
+
+Monitor CPU and Context Switching:
+top
+vmstat 1
+pidstat -w 1
+pidstat -w is particularly useful for observing context switches.
+
+Examine Scheduler Parameters:
+sysctl -a | grep sched
+
+For example:
+cat /proc/sys/kernel/sched_rr_timeslice_ms
+
+A scheduler parameter can be changed using:
+sudo sysctl -w kernel.sched_rr_timeslice_ms=20
+
+For a persistent configuration:
+sudo nano /etc/sysctl.conf
+
+Add:
+kernel.sched_rr_timeslice_ms = 20
+
+Then apply:
+sudo sysctl -p
+Scheduler parameters should be benchmarked before and after changing them.
+
+CPU Affinity:
+If a process does not need access to every CPU, CPU affinity can reduce interference.
+
+Find the process:
+pidof application
+
+Assign it to CPUs 2 and 3:
+sudo taskset -cp 2,3 PID
+
+Or start an application on specific CPUs:
+taskset -c 2,3 ./application
+
+Process Priority:
+A process can be started with a different priority:
+nice -n 10 ./application
+
+An existing process can be modified:
+sudo renice -n 5 -p PID
+
+Real-Time Scheduling:
+For workloads requiring real-time processing:
+sudo chrt -r 50 ./realtime_application
+
+Check the scheduling policy:
+chrt -p PID
+SCHED_RR and SCHED_FIFO should be used carefully.
+Giving excessive real-time priority to a process could prevent normal system processes from receiving CPU time.
+
+Kernel Modules
+List loaded modules:
+lsmod
+
+View information about a module:
+modinfo module_name
+
+If a module is confirmed to be unnecessary:
+sudo modprobe -r module_name
+It should only be removed after checking that no required service depends on it.
+
+Justification:
+The best approach is not simply to increase CPU priority. CPU affinity, scheduler policies, appropriate process priorities, and removal of unnecessary kernel functionality should be combined.
+This reduces unnecessary CPU scheduling and context-switching overhead while reserving CPU resources for real-time workloads.
+
+
+
+
+
+  
+  
+Q3. Processing 1 Million Log Entries Within 2 Minutes
+Problem Analysis:
+The administrator must process 1 million log entries per day using shell scripting.
+The script should complete within 2 minutes.
+The major performance problem with ordinary shell loops is that they may repeatedly create processes and perform unnecessary operations.
+Therefore, commands such as awk and grep, which process large amounts of data in a single invocation, are preferable.
+
+Inefficient Method
+Avoid code such as:
+for line in $(cat application.log)
+do
+    grep "ERROR" <<< "$line"
+done
+This produces unnecessary shell overhead.
+
+Efficient Method Using grep
+To count errors:
+grep -c "ERROR" application.log
+
+To count warnings:
+grep -c "WARNING" application.log
+
+To extract error records:
+grep "ERROR" application.log
+
+Efficient Processing Using awk
+Suppose the log contains:
+2026-08-25 INFO User login
+2026-08-25 ERROR Database failure
+2026-08-25 INFO File accessed
+2026-08-25 ERROR Network failure
+
+Count the different log levels:
+awk '
+{
+    count[$2]++
+}
+END {
+    for (level in count)
+        print level, count[level]
+}
+' application.log
+
+Count HTTP Status Codes:
+For an Apache-style log:
+awk '
+{
+    count[$9]++
+}
+END {
+    for (code in count)
+        print code, count[code]
+}
+' access.log
+
+Efficient Shell Script:
+#!/bin/bash
+LOG="application.log"
+echo "Processing log file..."
+awk '
+{
+    count[$2]++
+}
+END {
+    print "Log Summary:"
+    for (level in count)
+        print level, count[level]
+}
+' "$LOG"
+
+Measure Execution Time:
+time ./process_logs.sh
+
+Optimized Pipeline:
+For example:
+grep "ERROR" application.log |
+awk '{count[$2]++}
+END {
+    for (x in count)
+        print x, count[x]
+}'
+
+Why awk Is Suitable?
+awk is appropriate because it:
+           * Processes the file sequentially.
+           * Handles large files efficiently.
+           * Performs filtering and counting in one process.
+           * Avoids executing a separate shell command for every log entry.
+  
+Other useful bulk-processing commands include:
+grep
+awk
+sort
+uniq
+cut
+
+Justification:
+For one million records, the script should avoid per-line external commands and unnecessary temporary files.
+Using awk allows the file to be processed in a single operation.
+The actual execution time should be measured using time because performance depends on CPU speed, disk performance, system load, and the complexity of the processing operation.
+Thus, the proposed solution is designed to meet the 2-minute constraint efficiently.
+
+
+
+
+
+
+
+
+Q4. Managing a Faulty Process Using Linux Tools
+Problem Analysis:
+One background process is consuming 90% CPU.
+The administrator must control it without restarting the server and must ensure that critical services continue operating.
+
+The recommended strategy is:
+Identify → Monitor → Analyze → Reduce Impact → Terminate if Necessary → Verify
+
+
+
+Step 1: Identify the Process
+Use:
+top
+
+Alternatively:
+ps aux --sort=-%cpu | head -10
+
+Example:
+USER       PID   %CPU   %MEM   COMMAND
+user      4521   90.2    2.1   faulty_app
+root       812    5.4    1.0   systemd
+Here, 4521 is the PID of the faulty process.
+
+
+
+Step 2: Monitor the Process
+top -p 4521
+
+or:
+pidstat -p 4521 1
+This helps determine whether CPU consumption is continuously high.
+
+
+
+Step 3: Inspect the Process
+ps -fp 4521
+  
+Check its process tree:
+pstree -p 4521
+
+Check open files:
+sudo lsof -p 4521
+
+
+
+Step 4: Determine Whether It Is a Critical Service
+If it belongs to a system service:
+systemctl status application.service
+The administrator should not terminate a process blindly because it might belong to a critical service.
+
+
+  
+Step 5: Reduce CPU Priority
+If it is non-critical, lower its CPU priority:
+sudo renice 10 -p 4521
+
+Verify:
+ps -o pid,ni,cmd -p 4521
+
+
+
+  
+Step 6: Restrict CPU Affinity
+For example, restrict the process to CPU 0:
+sudo taskset -cp 0 4521
+This prevents it from using all available CPUs.
+
+
+
+  
+Step 7: Gracefully Terminate the Process
+If the process is confirmed to be faulty and non-critical:
+sudo kill -TERM 4521
+
+Check whether it has stopped:
+ps -p 4521
+
+If it does not respond:
+sudo kill -KILL 4521
+SIGKILL should be used only as a last resort.
+
+
+
+  
+Step 8: Verify Critical Services
+systemctl --failed
+systemctl status critical_service
+
+Check CPU utilization again:
+top
+
+Justification:
+A reboot is unnecessary because Linux provides tools for dynamically controlling processes.
+First identifying and monitoring the process prevents accidental termination of a critical service.
+Using renice or taskset can reduce the faulty process's impact without immediately terminating it. 
+If the process is confirmed to be faulty and non-critical, SIGTERM provides a controlled shutdown, with SIGKILL reserved for an unresponsive process.
+This strategy maintains system availability while controlling excessive CPU usage.
+
+
+
+
+
+
+
+
+  
+Q5. Efficient RAM Allocation for 5 Virtual Machines
+Problem Analysis:
+Given:
+Total physical RAM = 16 GB
+Number of VMs = 5
+Minimum RAM per VM = 2 GB
+Host OS requirement = 4 GB
+
+RAM required by VMs:
+5 × 2 GB = 10 GB
+
+RAM required by host:
+4 GB
+
+Total minimum:
+10 GB + 4 GB = 14 GB
+
+Remaining RAM:
+16 GB - 14 GB = 2 GB
+Therefore, the constraints can be satisfied.
+
+Proposed Allocation:
+Resource      	RAM
+Host OS       	4 GB
+VM1           	2 GB
+VM2	            2 GB
+VM3	            2 GB
+VM4            	2 GB
+VM5	            2 GB
+Reserved 
+headroom	      2 GB
+Total	          16 GB
+The recommended approach is to not immediately allocate the remaining 2 GB.
+It can act as operational headroom for the host.
+
+Example: KVM/libvirt Configuration
+For VM1:
+sudo virt-install \
+--name VM1 \
+--memory 2048 \
+--vcpus 2 \
+--disk size=20 \
+--os-variant generic \
+--network network=default
+
+Similarly:
+sudo virt-install --name VM2 --memory 2048 --vcpus 2
+sudo virt-install --name VM3 --memory 2048 --vcpus 2
+sudo virt-install --name VM4 --memory 2048 --vcpus 2
+sudo virt-install --name VM5 --memory 2048 --vcpus 2
+2048 MB = 2 GB.
+
+Check Virtual Machines:
+virsh list --all
+
+Check a VM's configuration:
+virsh dominfo VM1
+
+Check Host Memory
+free -h
+
+Example:
+               total        used        free
+Mem:            16Gi        ...         ...
+Swap:            4Gi        ...         ...
+
+Check VM Memory Statistics:
+virsh dommemstat VM1
+
+Change VM Memory:
+If additional memory needs to be assigned later:
+virsh setmem VM1 2048M --config
+Memory should only be increased if sufficient physical memory remains available.
+
+Optional Memory Optimization:
+KVM can use Kernel Samepage Merging (KSM) where appropriate.
+
+Check KSM:
+cat /sys/kernel/mm/ksm/run
+
+Enable it:
+echo 1 | sudo tee /sys/kernel/mm/ksm/run
+KSM can reduce duplicate memory consumption when VMs have similar memory pages.
+
+Justification:
+The minimum VM requirement is:
+5 × 2 GB = 10 GB
+
+The host requires:
+4 GB
+
+Therefore:
+10 GB + 4 GB = 14 GB
+
+and:
+16 GB - 14 GB = 2 GB
+
+The final allocation satisfies every constraint:
+Host = 4 GB
+VM1  = 2 GB
+VM2  = 2 GB
+VM3  = 2 GB
+VM4  = 2 GB
+VM5  = 2 GB
+----------------
+Used = 14 GB
+Reserved = 2 GB
+Total = 16 GB
+Keeping the remaining 2 GB as headroom is safer than allocating it immediately because it helps the host handle temporary memory pressure and virtualization overhead.
+
+  
+Final Summary
+Q	Main Linux Concepts	Key Commands/Tools
+1	Partitioning, LVM, log management	lsblk, df, lvcreate, logrotate, du
+2	Scheduler and kernel optimization	sysctl, taskset, nice, renice, chrt, lsmod
+3	High-performance shell processing	awk, grep, sort, uniq, time
+4	Process management	top, ps, pidstat, renice, taskset, kill
+5	Virtualization and memory allocation	virsh, virt-install, free, KSM
