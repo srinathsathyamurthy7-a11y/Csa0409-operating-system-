@@ -1,0 +1,233 @@
+ NAME: SRINATH S
+ REG NO: 192521016
+ COURSE CODE: CSA0409
+
+
+
+
+Q1. File System Space Management:
+
+Objective: Monitor disk usage and automatically delete or rotate/compress log files when disk utilization exceeds 80%.
+
+Pseudocode:
+BEGIN
+INPUT disk_partition
+SET threshold = 80
+SET critical_threshold = 90
+WHILE system_is_running DO
+    disk_usage = GET_DISK_USAGE(disk_partition)
+    IF disk_usage >= threshold THEN
+        PRINT "Warning: Disk usage is above 80%"
+        log_files = GET_LOG_FILES()
+        SORT log_files BY age DESCENDING
+        FOR each log_file IN log_files DO
+            IF disk_usage < threshold THEN
+                BREAK
+            ENDIF
+            IF log_file IS CURRENTLY_IN_USE THEN
+                ROTATE log_file
+            ELSE
+                COMPRESS log_file
+            ENDIF
+            disk_usage = GET_DISK_USAGE(disk_partition)
+        ENDFOR
+        IF disk_usage >= critical_threshold THEN
+            PRINT "Critical disk usage"
+            FOR each log_file IN log_files DO
+                IF disk_usage < threshold THEN
+                    BREAK
+                ENDIF
+                IF log_file IS NOT CURRENTLY_IN_USE THEN
+                    DELETE log_file
+                    disk_usage = GET_DISK_USAGE(disk_partition)
+                ENDIF
+            ENDFOR
+        ENDIF
+    ENDIF
+    WAIT for monitoring_interval
+ENDWHILE
+PRINT "Disk monitoring stopped"
+END
+
+OUTPUT: Disk utilization is maintained below the specified threshold while protecting currently active log files.
+
+
+
+
+
+
+
+
+Q2. Priority-Based CPU Scheduling:
+
+Objective: Improve CPU efficiency by selecting processes according to their priority while preventing low-priority processes from being ignored indefinitely.
+
+Pseudocode:
+BEGIN
+INPUT process_list
+FOR each process IN process_list DO
+    INPUT process.priority
+    INPUT process.burst_time
+    SET process.remaining_time = process.burst_time
+    SET process.waiting_time = 0
+END FOR
+SORT process_list BY priority DESCENDING
+WHILE process_list IS NOT EMPTY DO
+    SELECT process WITH HIGHEST priority
+    PRINT "Executing Process:", process.ID
+    ALLOCATE CPU TIME to process
+    EXECUTE process FOR time_quantum
+    process.remaining_time 
+        process.remaining_time - time_quantum
+    IF process.remaining_time <= 0 THEN
+        PRINT "Process completed:", process.ID
+        REMOVE process FROM process_list
+    ELSE
+        REDUCE process.priority SLIGHTLY
+        FOR each other_process IN process_list DO
+            INCREASE other_process.priority SLIGHTLY
+        END FOR
+        RE-SORT process_list BY priority DESCENDING
+    ENDIF
+ENDWHILE
+PRINT "All processes completed"
+END
+
+Output: CPU is allocated according to priority while priority adjustment helps prevent starvation of lower-priority processes.
+
+
+
+
+
+
+
+
+Q3. RAM Resource Management for Virtual Machines:
+
+Objective: Distribute available RAM among multiple virtual machines while reserving memory for the host operating system.
+
+pseudocode:
+BEGIN
+INPUT total_RAM
+INPUT host_reserved_RAM
+INPUT number_of_VMs
+SET minimum_RAM = 2 GB
+SET available_RAM = total_RAM - host_reserved_RAM
+IF available_RAM <= 0 THEN
+    PRINT "No RAM available for virtual machines"
+    END
+ENDIF
+FOR i = 1 TO number_of_VMs DO
+    IF available_RAM >= minimum_RAM THEN
+        ALLOCATE minimum_RAM TO VM[i]
+        available_RAM = available_RAM - minimum_RAM
+        PRINT "Allocated", minimum_RAM, "to VM", i
+    ELSE
+        PRINT "Insufficient RAM for VM", i
+        SET VM[i] = "Not Allocated"
+    ENDIF
+END FOR
+IF available_RAM > 0 THEN
+    remaining_VMs = COUNT of allocated VMs
+    IF remaining_VMs > 0 THEN
+        extra_RAM = available_RAM / remaining_VMs
+        FOR each allocated_VM DO
+            ALLOCATE extra_RAM TO allocated_VM
+        END FOR
+    ENDIF
+ENDIF
+PRINT "RAM allocation completed"
+PRINT "Remaining RAM:", available_RAM
+END
+
+Output: RAM is distributed among VMs while maintaining the minimum allocation and preserving host memory.
+
+
+
+
+
+
+
+
+Q4. Hypervisor Selection:
+
+Objective: Select the most appropriate hypervisor based on performance, hardware access, budget, and system requirements.
+
+pseudocode:
+BEGIN
+INPUT performance_required
+INPUT budget
+INPUT hardware_access
+INPUT number_of_VMs
+INPUT isolation_required
+IF hardware_access = TRUE AND performance_required = HIGH THEN
+    selected_hypervisor = "Type 1 Hypervisor"
+    reason = "Provides high performance and direct hardware access"
+ELSE IF performance_required = HIGH AND number_of_VMs > 5 THEN
+    IF hardware_access = TRUE THEN
+        selected_hypervisor = "Type 1 Hypervisor"
+        reason = "Suitable for high-performance multi-VM environments"
+    ELSE
+        selected_hypervisor = "Type 2 Hypervisor"
+        reason = "Hardware access is limited"
+    ENDIF
+ELSE IF budget = LOW THEN
+    selected_hypervisor = "Type 2 Hypervisor"
+    reason = "Lower cost and suitable for desktop/testing environments"
+ELSE IF isolation_required = HIGH THEN
+    selected_hypervisor = "Type 1 Hypervisor"
+    reason = "Provides strong isolation and efficient resource management"
+ELSE
+    selected_hypervisor = "Type 1 Hypervisor"
+    reason = "Provides better overall resource efficiency"
+ENDIF
+PRINT "Selected Hypervisor:", selected_hypervisor
+PRINT "Reason:", reason
+END
+
+Output: The algorithm selects Type 1 or Type 2 according to the given system requirements and constraints.
+
+
+
+
+
+
+
+
+Q5. CPU and Memory Resource Limiting Using cgroups:
+
+Objective: Control CPU and memory usage of applications to prevent one application from consuming excessive system resources.
+
+pseudocode:
+BEGIN
+INPUT application_list
+FOR each application IN application_list DO
+    CREATE cgroup FOR application
+    INPUT cpu_limit
+    INPUT memory_limit
+    SET CPU_LIMIT of cgroup = cpu_limit
+    SET MEMORY_LIMIT of cgroup = memory_limit
+    ASSIGN application PROCESS to cgroup
+END FOR
+WHILE system_is_running DO
+    FOR each application IN application_list DO
+        cpu_usage = GET_CPU_USAGE(application)
+        memory_usage = GET_MEMORY_USAGE(application)
+        IF cpu_usage > cpu_limit THEN
+            THROTTLE CPU usage of application
+            PRINT "CPU usage limited for", application
+        ENDIF
+        IF memory_usage > memory_limit THEN
+            LIMIT memory allocation
+            IF memory_usage remains above limit THEN
+                TERMINATE or RESTART application
+                PRINT "Memory limit exceeded by", application
+            ENDIF
+        ENDIF
+    END FOR
+    WAIT for monitoring_interval
+ENDWHILE
+PRINT "Resource management completed"
+END
+
+Output: CPU and memory consumption of applications are controlled using resource limits, improving overall system stability and efficiency.
